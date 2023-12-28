@@ -4,13 +4,14 @@ const User = require('../models/User')
 
 route.post('/register', async (req, res) => {
     try {
-      const { fullname, email, password, district,sector, role } = req.body;
+      const { fullname, email, password, district,sector, role,province } = req.body;
       const hashedPassword = await bcrypt.hash(password, 10);
   
       const newUser = new User({
         fullname,
         email,
         password: hashedPassword,
+        province,
         district,
         sector,
         role,
@@ -22,6 +23,7 @@ route.post('/register', async (req, res) => {
         user: {
             fullname: newUser.fullname,
             email: newUser.email,
+            province: newUser.province,
             district: newUser.district,
             sector: newUser.sector,
             role: newUser.role,
