@@ -4,10 +4,26 @@ const IssuesModal = require('../models/Issues');
 const IssusModel = require('../models/Issues')
 const Final = require('../models/Finalreport')
 const Production = require('../models/Production')
+const nodemailer = require('nodemailer');
+const multer = require('multer')
+const path = require('path')
 
 
-// farmerRoutes.js
+const user ='ngabosevelin@gmail.com' 
 
+const transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    auth:{
+        user:user,
+        pass:'zpfx qisa azei pnki'
+    },
+    tls: {
+        // Add the following line to trust self-signed certificates
+        rejectUnauthorized: false
+    }
+});
 const generateFarmerId = () => {
   return Math.floor(100000 + Math.random() * 900000);
 };
@@ -15,7 +31,7 @@ const generateFarmerId = () => {
 route.get('/farmers', async (req, res) => {
   try {
     // Retrieve all farmers from the database
-    const allFarmers = await FormDataModel.find();
+    const allFarmers = await FormDataModel.find().sort({ createdAt: -1});
 
     res.json({ data: allFarmers });
   } catch (error) {
@@ -24,13 +40,35 @@ route.get('/farmers', async (req, res) => {
   }
 });
 
-route.post('/register-farmer', async (req, res) => {
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/'); // Specify the destination folder for file uploads
+  },
+  filename: function (req, file, cb) {
+    cb(null, file.originalname);
+  },
+});
+
+const upload = multer({ storage: storage });
+
+
+
+
+route.post('/register-farmer',  upload.fields([{ name: 'idCopy', maxCount: 1 }, { name: 'landCertificate', maxCount: 1 }]), async (req, res) => {
   try {
-    const formData = req.body;
+    const formData = JSON.parse(req.body.formData);
+    const idCopy= req.file 
 
-    // Generate a farmerId with 6 digits
+    formData.idCopy = {
+      originalName: req.files['idCopy'][0].originalname,
+      url: 'http://localhost:4000/uploads/' + req.files['idCopy'][0].filename,
+    };
+    formData.landCertificate = {
+      originalName: req.files['landCertificate'][0].originalname,
+      url: 'http://localhost:4000/uploads/' + req.files['landCertificate'][0].filename,
+    };
     formData.farmerId = await generateFarmerId();
-
     const newFarmer = new FormDataModel(formData);
     newFarmer.actions = 'pending';
 
@@ -47,23 +85,59 @@ route.post('/register-farmer', async (req, res) => {
 route.put('/update-farmer/:farmerId', async (req, res) => {
   try {
     const { farmerId } = req.params;
-    const { status,comment } = req.body; // Assuming you send the new action value in the request body
+    const { status, comment } = req.body;
 
-    // Validate action value (optional)
-
+    // Validate action value and other validation if needed
 
     // Update the actions field in the document
     const updatedData = await FormDataModel.findOneAndUpdate(
       { farmerId },
-      { $set: { actions: status,comment: comment } },
-      { new: true } // To return the updated document
+      { $set: { actions: status, comment: comment } },
+      { new: true }
     );
 
     if (!updatedData) {
       return res.status(404).json({ error: 'Farmer data not found' });
     }
 
-    res.json({ message: 'Actions updated successfully', data: updatedData });
+    // Check if the status is 'allowed' or 'rejected' and send an email accordingly
+    if (status === 'allowed' || status === 'rejected') {
+      // Assuming personInfo is an object within FormDataModel with an emailAddress property
+      const { personalInfo } = updatedData;
+      const recipientEmail = personalInfo && personalInfo.emailAddress;
+
+      if (recipientEmail) {
+        let subject, emailText;
+
+        if (status === 'allowed') {
+          subject = `Approval Notification: Farmer ${personalInfo.fullName}`;
+          emailText = `Congratulations! Your application for Farmer ${personalInfo.fullName} has been approved.'}`;
+        } else {
+          subject = `Rejection Notification: Farmer ${personalInfo.fullName}`;
+          emailText = `We regret to inform you that your application for Farmer ${personalInfo.fullName} has been rejected. Comment: ${comment || 'No comment provided.'}`;
+        }
+
+        const mailOptions = {
+          from: 'ngabosevelin@gmail.com',
+          to: recipientEmail,
+          subject,
+          text: emailText
+        };
+
+        // Send the email
+        transporter.sendMail(mailOptions, (error, info) => {
+          if (error) {
+            console.error('Error sending email:', error);
+          } else {
+            console.log('Email sent:', info.response);
+          }
+        });
+      } else {
+        console.warn('No email address found in personInfo');
+      }
+    }
+
+    res.status(200).json({ message: 'Actions updated successfully', data: updatedData });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal Server Error' });
@@ -178,5 +252,18 @@ route.post('/final', async (req, res) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
+
+
+
+route.post('/upload', upload.fields([{ name: 'idCopy' }, { name: 'landCertificate' }]), (req, res) => {
+  const { idCopy, landCertificate } = req.files;
+
+  // Save file information to MongoDB using Mongoose
+  // You need to create a Mongoose model and handle the file saving logic here
+
+  res.status(200).send('Files uploaded successfully!');
+});
+
+
 
 module.exports = route;

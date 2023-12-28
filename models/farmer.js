@@ -46,8 +46,18 @@ const MainSchema = new mongoose.Schema({
   actions:String,
   farmerId: String,
   comment: {type: String,default: ''},
-  approveComment: ApproveCommentSchema
-});
+  approveComment: ApproveCommentSchema,
+  idCopy: {
+    originalName: String,
+    url: String, // Assuming you want to store the URL
+  },
+  landCertificate: {
+    originalName: String,
+    url: String, // Assuming you want to store the URL
+  },
+
+
+}, {timestamps:true});
 
 // Create a model using the main schema
 const Farmer = mongoose.model('Farmer', MainSchema);

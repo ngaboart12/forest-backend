@@ -6,6 +6,7 @@ const farmerRoutes = require('./Routes/Famer');
 const authRoutes = require('./Routes//Auth');
 const districtReport = require('./Routes/DistrictReport');
 const app = express()
+const path = require('path')
 app.use(express.json())
 app.use(bodyParser.json());
 app.use(cors());
@@ -14,7 +15,7 @@ mongoose.connect('mongodb+srv://ngaboart123:sevelin123@cluster0.hxpxs7e.mongodb.
     console.log('database are connected')
 })
 
-
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 
 app.use('/api', farmerRoutes);
